@@ -149,15 +149,13 @@ example_questions = [
 ]
 
 
-# ─── Build Gradio Interface ─────────────────────────────────
+theme = gr.themes.Soft(
+    primary_hue="blue",
+    secondary_hue="slate",
+    neutral_hue="slate",
+)
+
 with gr.Blocks(
-    theme=gr.themes.Soft(
-        primary_hue="blue",
-        secondary_hue="slate",
-        neutral_hue="slate",
-        font=gr.themes.GoogleFont("Inter"),
-    ),
-    css=custom_css,
     title="Chronos: The AI Historian",
 ) as app:
 
@@ -203,6 +201,9 @@ with gr.Blocks(
 if __name__ == "__main__":
     app.launch(
         server_name="127.0.0.1",
+        server_port=7860,
         share=False,
         show_error=True,
+        theme=theme,
+        css=custom_css,
     )
