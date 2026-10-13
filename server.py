@@ -1,3 +1,7 @@
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from rag_system import HistoryRAGSystem
@@ -6,7 +10,7 @@ import uvicorn
 app = FastAPI(title="Chronos History AI Backend")
 
 # Initialize the AI System
-print(f"INFO: Loading History AI System with model: {HistoryRAGSystem().model_name}...")
+print("INFO: Loading History AI System...")
 history_bot = HistoryRAGSystem()
 print(f"DONE: AI System Ready using {history_bot.model_name}!")
 

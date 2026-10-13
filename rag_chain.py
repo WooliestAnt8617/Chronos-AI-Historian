@@ -6,12 +6,16 @@ to answer historical questions based on the knowledge base.
 """
 
 import os
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import ChatOllama
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferWindowMemory
-from langchain.prompts import PromptTemplate
+from langchain_classic.chains import ConversationalRetrievalChain
+from langchain_classic.memory import ConversationBufferWindowMemory
+from langchain_core.prompts import PromptTemplate
 
 
 # ─── Configuration ───────────────────────────────────────────
@@ -122,8 +126,8 @@ def ask(chain, question: str) -> dict:
         print("INFO: Attempting to fetch dynamically from Wikipedia...")
         try:
             import wikipedia
-            from langchain.text_splitter import RecursiveCharacterTextSplitter
-            from langchain.schema import Document
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+            from langchain_core.documents import Document
             
             # Search wikipedia for the question
             search_results = wikipedia.search(question)

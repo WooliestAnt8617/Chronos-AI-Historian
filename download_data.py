@@ -3,7 +3,11 @@ download_data.py — Expands the knowledge base by downloading articles from Wik
 """
 
 import os
+import sys
 import wikipedia
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 # Ensure data directory exists
 data_dir = os.path.join(os.path.dirname(__file__), "data")

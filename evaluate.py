@@ -2,8 +2,11 @@ import os
 import sys
 import time
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 # Add project root to sys.path
-PROJECT_DIR = r"c:\Users\amitv\OneDrive\Documents\Gravity\GEN AI\history-fact-bot"
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(PROJECT_DIR)
 
 from rag_chain import create_rag_chain, ask

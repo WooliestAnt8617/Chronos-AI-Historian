@@ -1,19 +1,33 @@
 import os
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+import joblib
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import ChatOllama
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferWindowMemory
-from langchain.prompts import PromptTemplate
-import wikipedia
-import joblib
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.chains import ConversationalRetrievalChain
+from langchain_classic.memory import ConversationBufferWindowMemory
+from langchain_core.prompts import PromptTemplate
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+try:
+    import wikipedia
+    from wikipedia.exceptions import DisambiguationError, PageError
+except ImportError:
+    wikipedia = None
+    DisambiguationError = Exception
+    PageError = Exception
+    print("⚠️ Wikipedia package not installed. Wikipedia features will be disabled.")
 
 class HistoryRAGSystem:
     def __init__(self, model_name="llama3.2:1b"):
         self.project_dir = os.path.dirname(os.path.abspath(__file__))
         self.vectorstore_dir = os.path.join(self.project_dir, "vectorstore")
         self.data_dir = os.path.join(self.project_dir, "data")
+        # Ensure required directories exist
+        os.makedirs(self.vectorstore_dir, exist_ok=True)
+        os.makedirs(self.data_dir, exist_ok=True)
         self.model_name = model_name
         self.retriever_k = 5
         
@@ -112,49 +126,63 @@ class HistoryRAGSystem:
             full_answer += chunk_content
             yield {"type": "content", "delta": chunk_content}
 
-        # 📚 Step 3: Check for ignorance and Wikipedia Fallback
+        # 📚 Step 3: Check for ignorance and Wikipedia fallback with robust handling
         ignorance_keywords = ["don't know", "dont know", "no information", "insufficient", "not mentioned", "not found"]
         is_ignorant = any(k in full_answer.lower() for k in ignorance_keywords) or len(full_answer) < 60
-        
+
         if is_ignorant:
+            # Attempt Wikipedia search
             try:
                 search_results = wikipedia.search(question)
-                if search_results:
+                if not search_results:
+                    print("INFO: No Wikipedia results found for the query.")
+                else:
+                    # Choose the most appropriate result, skip generic entries like 'Batman' unless specific
                     wiki_topic = search_results[0]
-                    # Avoid learning things like "Batman" unless it's a very specific historical request
                     if "batman" in wiki_topic.lower() and len(search_results) > 1:
                         wiki_topic = search_results[1]
-                    
-                    sanitized_topic = "".join(x for x in wiki_topic if x.isalnum() or x in " -_").strip()
+
+                    # Sanitize topic name for filename usage
+                    sanitized_topic = "".join(ch for ch in wiki_topic if ch.isalnum() or ch in " -_").strip()
                     filename = f"learned_{sanitized_topic.replace(' ', '_').lower()}.txt"
                     filepath = os.path.join(self.data_dir, filename)
 
-                    # 🛡️ REDUNDANT LEARNING CHECK: If we already have this file, don't "learn" it again
+                    # Avoid redundant learning
                     if os.path.exists(filepath):
-                        print(f"INFO: Topic '{wiki_topic}' already exists in local records. Skipping Wikipedia fetch.")
-                        return
+                        print(f"INFO: Topic '{wiki_topic}' already exists locally. Skipping fetch.")
+                    else:
+                        # Try fetching the page, handling possible Wikipedia errors gracefully
+                        try:
+                            page = wikipedia.page(wiki_topic, auto_suggest=False)
+                        except (DisambiguationError, PageError) as page_err:
+                            # If the first attempt fails, attempt the next search result if available
+                            if len(search_results) > 1:
+                                fallback_topic = search_results[1]
+                                print(f"WARN: Falling back to alternative Wikipedia result '{fallback_topic}' due to error: {page_err}")
+                                page = wikipedia.page(fallback_topic, auto_suggest=False)
+                                wiki_topic = fallback_topic
+                            else:
+                                raise page_err
 
-                    page = wikipedia.page(wiki_topic, auto_suggest=False)
-                    summary = page.summary if hasattr(page, 'summary') else page.content[:500]
-                    content_to_save = page.content[:3000]
-                    
-                    # Persist the new knowledge
-                    with open(filepath, "w", encoding="utf-8") as f:
-                        f.write(f"LEARNED KNOWLEDGE: {wiki_topic}\n\n{content_to_save}")
-                    
-                    # 🚀 IN-MEMORY INDEX UPDATE: Add the new document to FAISS instantly
-                    from langchain.schema import Document
-                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                    chunks = text_splitter.split_text(content_to_save)
-                    new_docs = [Document(page_content=c, metadata={"source": filepath}) for c in chunks]
-                    
-                    self.vectorstore.add_documents(new_docs)
-                    self.vectorstore.save_local(self.vectorstore_dir)
-                    print(f"DONE: Successfully learned and indexed topic: '{wiki_topic}'")
-                    
-                    yield {"type": "wiki", "topic": wiki_topic, "summary": summary}
+                        summary = getattr(page, "summary", page.content[:500])
+                        content_to_save = page.content[:3000]
+
+                        # Save the fetched knowledge locally
+                        with open(filepath, "w", encoding="utf-8") as f:
+                            f.write(f"LEARNED KNOWLEDGE: {wiki_topic}\n\n{content_to_save}")
+
+                        # Update in‑memory FAISS index instantly
+                        from langchain_core.documents import Document
+                        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                        chunks = text_splitter.split_text(content_to_save)
+                        new_docs = [Document(page_content=c, metadata={"source": filepath}) for c in chunks]
+                        self.vectorstore.add_documents(new_docs)
+                        self.vectorstore.save_local(self.vectorstore_dir)
+                        print(f"DONE: Successfully learned and indexed topic: '{wiki_topic}'")
+                        yield {"type": "wiki", "topic": wiki_topic, "summary": summary}
             except Exception as e:
-                print(f"ERROR: Failed to learn from Wikipedia: {str(e)}")
+                print(f"ERROR: Failed to learn from Wikipedia: {e}")
+                # Continue without Wikipedia fallback
                 pass
 
     def query(self, question: str):

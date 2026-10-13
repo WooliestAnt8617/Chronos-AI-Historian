@@ -6,7 +6,11 @@ and saves the FAISS index to disk for later retrieval.
 """
 
 import os
+import sys
 import time
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 from data_loader import load_documents, report_preprocessing_stats, chunk_documents
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS

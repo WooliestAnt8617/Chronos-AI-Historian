@@ -1,6 +1,16 @@
 langchain
 langchain-community
+langchain-core
+langchain-classic
 langchain-ollama
+langchain-text-splitters
 faiss-cpu
 sentence-transformers
 gradio
+fastapi
+uvicorn
+pydantic
+requests
+wikipedia
+joblib
+scikit-learn

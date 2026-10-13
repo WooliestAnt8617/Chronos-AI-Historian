@@ -4,6 +4,10 @@ from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
 import joblib
 import os
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 DATA = [
     #  Ancient History

@@ -2,7 +2,7 @@ import os
 import re
 from collections import Counter
 
-DATA_DIR = r"c:\Users\amitv\OneDrive\Documents\Gravity\GEN AI\history-fact-bot\data"
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 def perform_eda():
     """Analyze the historical knowledge base."""
